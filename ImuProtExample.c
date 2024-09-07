@@ -9,14 +9,15 @@
 // 749520DF3F03000000007F79F2F6FFFFD7EEFFFF13F6FFFF82EFFFFF5AE6FFFF01C90900022D0189
 // 749522DD0000000000007F7912EFFFFF99F4FFFFFEF9FFFFBFEAFFFFAADCFFFFB5CA0900C8E47F2F
 
-void hexStringToByteArray(const char* hexString, uint8_t * byteArray, size_t* byteArrayLen);
+const uint8_t * hexStringToByteArray(const char* hexString, uint8_t * byteArray, size_t* byteArrayLen);
 void printByteArray(const unsigned char* byteArray, size_t byteArrayLen);
-void parsePacket(const char * packet);
+void parsePacket(const char * packetHex);
+void printPacket(const uint8_t * buffer);
 const char* ImuProtErrorToString(ImuProtError_t error);
 
 int main(void) {
-	printf("Size   Header Sequencer Temperature GyroX      GyroY      GyroZ      AcclX      AcclY"
-	       "      AcclZ  CRC32      Check      Validation result\n");
+	printf("Size Header Sequencers Temperature GyroX      GyroY      GyroZ      AcclX      AcclY"
+	       "      AcclZ    CRC32      Check      Validation result\n");
 	parsePacket("74951EE10000000000008179CAF6FFFF85FCFFFFC801000079ECFFFFDCE3FFFFF9C30900BA11DF0F");
 	parsePacket("74951FE00000000000007F79AFFEFFFFCFF4FFFFEAFBFFFF36F1FFFFC5E3FFFFA8C30900C14BE115");
 	parsePacket("749520DF3F03000000007F79F2F6FFFFD7EEFFFF13F6FFFF82EFFFFF5AE6FFFF01C90900022D0189");
@@ -32,25 +33,34 @@ int main(void) {
 }
 
 /**
- * Parses a hex-encoded packet, converts it to a byte array, extracts IMU data,
- * and prints key information such as temperature, gyroscope, and accelerometer values.
- * Validates the packet using CRC32 checksum.
+ * @brief Parses a packet given its hexadecimal string representation and prints the packet details.
  *
- * @param packet A hexadecimal string representing the packet data.
+ * This function converts the hexadecimal string representation of the packet into a byte array,
+ * then prints the details of the packet using the `printPacket` function.
+ *
+ * @param packetHex A string containing the hexadecimal representation of the packet.
  */
-void parsePacket(const char * packet) {
-	uint8_t buffer[128];
+void parsePacket(const char * packetHex) {
+	uint8_t buffer[256];
 	size_t size;
+	printPacket(hexStringToByteArray(packetHex, buffer, &size));
+}
 
-	hexStringToByteArray(packet, buffer, &size);
-//	printByteArray(buffer, size); // Print buffer as HEX for debug
+/**
+ * @brief Prints the details of an IMU protocol packet.
+ *
+ * This function checks the validity of the packet using `checkImuProtBuffer`, calculates the CRC32 checksum
+ * of the packet, and prints the packet details including header, sequencer, temperature, gyro, and accelerometer values.
+ *
+ * @param buffer A pointer to the byte array containing the IMU protocol packet data.
+ */
+void printPacket(const uint8_t * buffer) {
 	ImuProt_t * imuBuffer = (ImuProt_t*)buffer;
 	ImuProtError_t result = checkImuProtBuffer(buffer);
-	uint32_t crc32 = protCRC32(buffer, size - 4);
+	uint32_t crc32 = protCRC32(buffer, sizeof(ImuProt_t) - 4);
 
-	printf("%2d     0x%04X 0x%02X   % 8.2f  % 10.3f % 10.3f % 10.3f % 10.3f % 10.3f % 10.3f  0x%08X 0x%08X (%d) %s\n", 
-		(int)size,
-		imuBuffer->header, imuBuffer->sequencer,
+	printf("0x%04X 0x%02X 0x%02X % 8.2f  % 10.3f % 10.3f % 10.3f % 10.3f % 10.3f % 10.3f  0x%08X 0x%08X (%d) %s\n", 
+		imuBuffer->header, imuBuffer->sequencer, imuBuffer->ff_sequencer,
 		tempFromKelvin(imuBuffer->data.temperature),
 		floatData(imuBuffer->data.gyro[0]), floatData(imuBuffer->data.gyro[1]), floatData(imuBuffer->data.gyro[2]), 
 		floatData(imuBuffer->data.accl[0]), floatData(imuBuffer->data.accl[1]), floatData(imuBuffer->data.accl[2]),
@@ -58,14 +68,18 @@ void parsePacket(const char * packet) {
 }
 
 /**
- * Converts a hexadecimal string to a byte array.
+ * @brief Converts a hexadecimal string to a byte array.
  *
- * @param hexString Input string containing hexadecimal characters.
- * @param byteArray Output array where the converted bytes will be stored.
- * @param byteArrayLen Pointer to the size of the output byte array.
+ * This function takes a string representing hexadecimal values and converts it into a byte array.
+ * The length of the resulting byte array is computed and stored in the provided `byteArrayLen` pointer.
+ *
+ * @param hexString A string containing hexadecimal values, with each pair of characters representing a byte.
+ * @param byteArray A pointer to an array where the converted byte values will be stored.
+ * @param byteArrayLen A pointer to a size_t variable where the length of the byte array will be stored.
+ *
+ * @return A pointer to the byte array containing the converted values.
  */
-
-void hexStringToByteArray(const char* hexString, uint8_t * byteArray, size_t* byteArrayLen) {
+const uint8_t * hexStringToByteArray(const char* hexString, uint8_t * byteArray, size_t* byteArrayLen) {
     size_t strLen = strlen(hexString);
     *byteArrayLen = strLen / 2;
     
@@ -73,6 +87,8 @@ void hexStringToByteArray(const char* hexString, uint8_t * byteArray, size_t* by
         char byteStr[3] = { hexString[i * 2], hexString[i * 2 + 1], '\0' };
         byteArray[i] = (uint8_t )strtol(byteStr, NULL, 16);
     }
+
+	return byteArray;
 }
 
 /**
