@@ -98,9 +98,9 @@ void printByteArray(const unsigned char* byteArray, size_t byteArrayLen) {
 const char* ImuProtErrorToString(ImuProtError_t error) {
     switch (error) {
         case IMU_PROT_OK:
-            return "The data packet is valid.";
+            return "OK.";
         case IMU_PROT_BAD_HEADER:
-            return "Invalid packet header!";
+            return "Invalid header!";
         case IMU_PROT_BAD_SEQUENCER:
             return "Invalid sequencer!";
         case IMU_PROT_BAD_CRC:
